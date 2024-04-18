@@ -1,0 +1,130 @@
+---
+title: "Computer Use in Home"
+format: html
+editor: visual
+message : false
+warning : false
+---
+
+```{r}
+#|output: false
+library(tidycensus)
+library(sf)
+library(tidyverse)
+library(tigris)
+```
+
+```{r}
+#|output: false
+ComputerInternet <-
+  tidycensus::get_acs(
+    geography = "county",
+    state = "AK",
+    geometry = TRUE,
+    table = "S2801",
+    resolution = "20m"
+  )
+```
+
+```{r}
+
+```
+
+## How Many Alaskans Have Access to a computer?
+
+Computer breakdown by county equivalent.
+
+Comparison to National Average
+
+Source: S2801 2018-2022 ACS
+
+## How do Alaskans Use the Internet?
+
+```{r}
+#|output: false
+vars<-tidycensus::load_variables(2022,"acs5/subject")
+```
+
+```{r}
+#|output: false
+ComputerInternet <-
+  merge(ComputerInternet, vars, by.x = "variable", by.y = "name")
+
+```
+
+```{r}
+vars_unique <- unique(ComputerInternet$label)
+```
+
+```{r}
+#|output: false
+#Estimate!!Total!!Total households!!TYPES OF COMPUTER!!No computer
+#Estimate!!Percent!!Total households!!TYPES OF COMPUTER!!No computer
+vars_unique[grep("No co",vars_unique)]
+
+no_computer<-ComputerInternet[ComputerInternet$label=="Estimate!!Percent!!Total households!!TYPES OF COMPUTER!!No computer",]
+```
+
+```{r}
+#|output: false
+vars_unique[grep("Without", vars_unique)]
+no_internet <-
+  ComputerInternet[ComputerInternet$label == "Estimate!!Percent!!Total households!!TYPE OF INTERNET SUBSCRIPTIONS!!Without an Internet subscription", ]
+```
+
+Least Connected Counties in USA
+
+```{r}
+#|output: false
+#S2801_C02_019
+
+least_connected_counties <-
+  tidycensus::get_acs(geography = "county",
+                      variable = c("S1901_C01_012E", "S2801_C02_019")) %>% tidyr::pivot_wider(.,
+                                                                                              names_from = "variable",
+                                                                                              values_from = c("estimate", "moe"))
+
+least_connected_counties <- least_connected_counties
+```
+
+```{r}
+no_computer<-no_computer %>% shift_geometry()
+ggplot(data = no_computer, aes(fill = estimate)) + 
+  geom_sf()+
+  labs(title = "Percent of Alaska Households Without a Computer",
+       caption = "Data source: 2022 5-year ACS, US Census Bureau",
+       fill = "No Computer")+theme(
+  axis.text.x = element_blank(), axis.text.y = element_blank())+scale_fill_continuous(low="thistle2", high="darkred",
+guide="colorbar",na.value="white")
+
+```
+
+```{r}
+no_internet <- no_internet %>% shift_geometry()
+ggplot(data = no_internet, aes(fill = estimate)) +
+  geom_sf() +
+  labs(title = "Percent of Alaska Households Without an Internet Subscription",
+       caption = "Data source: 2022 5-year ACS, US Census Bureau",
+       fill = "% Without Internet") + theme(axis.text.x = element_blank(), axis.text.y = element_blank()) +
+  scale_fill_continuous(
+    low = "thistle2",
+    high = "darkred",
+    guide = "colorbar",
+    na.value = "white"
+  )
+
+```
+
+```{r}
+sheets <- readxl::excel_sheets("internet/Internet by Income.xlsx")
+income <-
+  lapply(sheets, function(x) {
+    readxl::read_excel("internet/Internet by Income.xlsx",
+                       sheet = x)
+  })
+income <-
+  Reduce(function(x, y)
+    merge(x, y, by = "Income Group", suffixes = c("_AK", "_US")), income)
+
+income[,c("Income Group","Estimate Pct_AK","Estimate Pct_US")]
+```
